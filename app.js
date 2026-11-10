@@ -14,6 +14,7 @@ engine.paused=true;
 const opponent=new Opponent({difficulty:ui.botDifficulty});
 const battle=new BattleSession(engine,opponent,{emit:onBattleEvent});
 let damageBurstTimer=null;
+let soloSession=null,soloWasRunning=false;
 let audioCtx=null,musicGain=null,musicOsc=[],audioUnlocked=false;
 let direction=0,directionTime=0,repeatTime=0,softHeld=false,softTime=0,dasCutUntil=0,safeLockUntil=0,dropping=false,ctrlPending=null,bufferedRotation=0,bufferedHold=false,bufferingSpawn=false;
 const pressed=new Set(),particles=[];
@@ -23,7 +24,7 @@ const icons={sound:'<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8
 const svg=content=>`<svg viewBox="0 0 24 24" aria-hidden="true">${content}</svg>`;
 $('settings-button').innerHTML=svg(icons.settings);$('fullscreen-button').innerHTML=svg(icons.fullscreen);
 
-function safeSave(){try{localStorage.setItem('zen-stacker-v1',JSON.stringify({ui,game:engine.serialize()}));$('save-label').textContent='SAVED LOCALLY';}catch{$('save-label').textContent='SAVE UNAVAILABLE';}}
+function safeSave(){try{localStorage.setItem('zen-stacker-v1',JSON.stringify({ui,game:battle.enabled&&soloSession?{...soloSession,settings:{...engine.settings}}:engine.serialize()}));$('save-label').textContent='SAVED LOCALLY';}catch{$('save-label').textContent='SAVE UNAVAILABLE';}}
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2200);}
 function unlockAudio(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch{return;}}audioCtx.resume().catch(()=>{});audioUnlocked=true;updateMusic();}
 function beep(type){if(!ui.sound||!audioCtx||audioCtx.state!=='running')return;const now=audioCtx.currentTime;const freq={move:170,rotate:340,hold:440,drop:80,lock:115,clear:640,level:880,undo:290,redo:390}[type];if(!freq)return;const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=type==='drop'?'triangle':'sine';osc.frequency.setValueAtTime(freq,now);osc.frequency.exponentialRampToValueAtTime(Math.max(30,freq*(type==='clear'?1.6:.6)),now+.08);gain.gain.setValueAtTime(ui.volume*(type==='move'?.035:.12),now);gain.gain.exponentialRampToValueAtTime(.0001,now+.12);osc.connect(gain);gain.connect(audioCtx.destination);osc.start(now);osc.stop(now+.13);}
@@ -99,8 +100,8 @@ function restartGame(){
  $('last-action').textContent='Fresh session. Your settings are kept.';start();updateStats();safeSave();toast('Restarted. Settings kept.');
 }
 function toggleCPU(){
- if(battle.enabled){battle.stop();document.body.classList.remove('vs-mode');$('cpu-panel').hidden=true;$('cpu-toggle').setAttribute('aria-pressed','false');$('cpu-toggle').innerHTML='<span>◈</span> PLAY VS CPU';toast('Solo Zen');}
- else{battle.start();document.body.classList.add('vs-mode');$('cpu-panel').hidden=false;$('cpu-toggle').setAttribute('aria-pressed','true');$('cpu-toggle').innerHTML='<span>◈</span> BACK TO SOLO';restartGame();toast('CPU practice started. Watch the board on the right.');}
+ if(battle.enabled){battle.stop();document.body.classList.remove('vs-mode');$('cpu-panel').hidden=true;$('cpu-toggle').setAttribute('aria-pressed','false');$('cpu-toggle').innerHTML='<span>◈</span> PLAY VS CPU';if(soloSession){const settings={...engine.settings};engine.restore({...soloSession,settings});soloSession=null;if(soloWasRunning)start();else{running=true;pause();}}safeSave();toast('Solo Zen restored. Your board and score are kept.');}
+ else{soloSession=engine.serialize();soloWasRunning=running;battle.start();document.body.classList.add('vs-mode');$('cpu-panel').hidden=false;$('cpu-toggle').setAttribute('aria-pressed','true');$('cpu-toggle').innerHTML='<span>◈</span> BACK TO SOLO';restartGame();toast('CPU practice started. Watch the board on the right.');}
  updateStats();
 }
 function showDamageBurst(amount,incoming=false){
