@@ -1,11 +1,19 @@
 # ZEN — Endless Stacking
 
-## [Play the game](https://aflyingkelp.github.io/zen-stacker-pages/)
+## [PLAY ON GITHUB PAGES](https://aflyingkelp.github.io/zen-stacker-pages/)
 
-An endless Zen stacking game with SRS+ and 180° kicks, T-spins and all-spin modes, adjustable handling, TETR.IO .TTC import, hold, ghost, undo/redo, garbage practice, and local saves.
+Endless Zen practice with SRS+ and 180° kicks, T-spins, hold, ghost, undo/redo, adjustable handling, TETR.IO .TTC settings import, and saved progress.
 
-Use arrows to move, Up/X to rotate clockwise, Z/Ctrl counterclockwise, A to rotate 180°, Space to hard drop, C/Shift to hold, Esc to pause. Open the gear button to adjust settings.
+### New features
 
-GitHub Pages publishes the `main` branch root. No build step is needed. All assets use relative paths.
+- Restart button and F2 shortcut, keeping your settings.
+- Gray tetromino skin for the board, hold, next queue, and opponent.
+- Independent 0–100% ghost opacity and drop-shadow opacity controls.
+- Damage totals, APM, attack bursts, cancellation, delayed garbage, and an incoming meter.
+- A visible CPU board powered by real browser-local Cold Clear 2 WebAssembly, with three speeds and a local heuristic fallback.
 
-Independent recreation inspired by [TETR.IO](https://tetr.io/), made by OSK. No TETR.IO source code, audio, or artwork is bundled. Level progression and advanced scoring are approximate.
+Choose **Play vs CPU** to watch and play against the opponent. Use the gear button for settings.
+
+Cold Clear 2 is an independent community AI, not an official TETR.IO service. All bundled AI source, binary provenance, checksums, and original licenses are in [licenses/NOTICE.txt](licenses/NOTICE.txt). GitHub Pages publishes the main branch root; no build step is needed.
+
+Inspired by [TETR.IO](https://tetr.io/), made by OSK. This is an independent recreation. Level progression and advanced scoring are approximate.

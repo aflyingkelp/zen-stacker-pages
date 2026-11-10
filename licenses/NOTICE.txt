@@ -1,0 +1,30 @@
+Cold Clear 2 opponent
+====================
+
+This game uses the real Cold Clear 2 search engine in a browser-local module
+worker. The game is independent of TETR.IO, OSK, Cold Clear's authors, and the
+community port's authors. None of those authors endorse this recreation.
+
+Engine: MinusKelvin/cold-clear-2
+Source: https://github.com/MinusKelvin/cold-clear-2
+Pinned upstream revision: ed8b19327b6bd1410ddd873d8611485bd45d8fae
+Copyright (c) 2021 Mark Carlson. Distributed under its MIT license choice.
+The upstream Apache-2.0 alternative is also retained for completeness.
+
+Deterministic browser port: 61bi-234469/s2-bot-lab
+Source: https://github.com/61bi-234469/s2-bot-lab/tree/main/bot/cold-clear-2-upstream
+Copyright (c) 2026 61bi-234469. MIT license.
+Binary source: https://61bi-234469.github.io/s2-bot-lab/cold_clear_2_upstream.wasm
+Retrieved 2026-11-10. Local filename: coldclear.wasm
+SHA-256: fc259e403255167e3b16b577eb5e52791243d466b60babf73dc54075099dd88f
+
+The import-free WASM clock patch of instant retains its BSD-3-Clause license.
+The accompanying complete upstream notices are preserved without alteration;
+some entries refer to other components of s2-bot-lab that this game does not
+bundle. No Triangle.js, replay importer, or S2 simulator JavaScript is included.
+
+The Zen-specific adapter, worker protocol, reachability validation, and fallback
+practice CPU are original code for this project. WASM suggestions are validated
+through the game's own movement and kick rules before they are executed. The
+opponent is labeled Cold Clear 2 only after accepting an actual WASM suggestion;
+load failures, timeouts, or unreachable suggestions use the Practice CPU.
