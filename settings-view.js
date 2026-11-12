@@ -1,4 +1,4 @@
-import {DEFAULT_KEYS} from './config.js?v=3';
+import {DEFAULT_KEYS} from './config.js?v=6';
 export const keyName=code=>({ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓',Space:'Space',ControlLeft:'Ctrl',ControlRight:'Ctrl',ShiftLeft:'Shift',ShiftRight:'Shift',NumpadEnter:'Num Enter',Backspace:'Backspace'})[code]||code.replace(/^Key/,'').replace(/^Digit/,'').replace(/^Numpad/,'Num ');
 export function settingsView(ui,game,tab,captureKey){
  const group=title=>`<div class="settings-group-title">${title}</div>`;
@@ -45,7 +45,7 @@ export function settingsView(ui,game,tab,captureKey){
  if(tab==='look'){
  html+=group('GAMEPLAY & VIDEO');
  html+=select('theme','Accent color','Choose the atmosphere around the board.',[['violet','DUSK VIOLET'],['mint','QUIET MINT'],['rose','SOFT ROSE'],['blue','MIDNIGHT BLUE']],'ui');
- html+=select('pieceSkin','Tetromino skin','Apply the skin to your board, hold, next queue, and CPU.',[['color','STANDARD COLORS'],['gray','GRAY / MONOCHROME']],'ui');
+ html+=select('pieceSkin','Tetromino skin','Apply the skin to your board, hold, next queue, and CPU.',[['color','STANDARD COLORS'],['gray','GRAY / MONOCHROME'],['solid','SOLID COLORS · NO BORDERS'],['solid-gray','SOLID GRAY · NO BORDERS']],'ui');
  html+=select('actionText','Action text','Show clear names and scoring feedback.',[['off','OFF'],['some','SOME'],['all','ALL']],'ui');
  html+=toggle('ghost','Show shadow piece','Preview the landing position.');
  html+=toggle('coloredShadow','Colored shadow piece','Match the shadow to the falling piece.');
@@ -61,6 +61,7 @@ export function settingsView(ui,game,tab,captureKey){
  html+=toggle('glow','Bloom / piece glow','A subtle glow around the active piece.');
  html+=toggle('particles','Particles','Add a little feedback to line clears.');
  html+=range('particlesAmount','Particle count','Scale the number of clear particles.',0,2,.1,'×');
+ html+=toggle('hardDropShake','Hard-drop shake','Enable or disable only the hard-drop board impact.');
  html+=toggle('motion','Motion effects','Enable impact and transitions.');
  html+=toggle('minimal','Focus mode','Hide the caption, control guide, and footer.');
  html+=group('VOLUME & AUDIO');

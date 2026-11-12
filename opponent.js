@@ -1,5 +1,5 @@
-import {ZenEngine,SHAPES,WIDTH,HEIGHT,VISIBLE_START} from './engine.js';
-import {ColdClearClient} from './coldclear-client.js';
+import {ZenEngine,SHAPES,WIDTH,HEIGHT,VISIBLE_START} from './engine.js?v=6';
+import {ColdClearClient} from './coldclear-client.js?v=6';
 
 export const DIFFICULTIES=Object.freeze({easy:.55,normal:1.1,hard:2});
 const FULL_ROW=(1<<WIDTH)-1;
@@ -127,8 +127,8 @@ export class Opponent{
  constructor({difficulty='normal',emit=()=>{},advisor=null}={}){
   this.emit=typeof emit==='function'?emit:()=>{};
   this.enabled=false;this.difficulty=clampDifficulty(difficulty);this.name='Practice CPU';this.status='Local practice AI';
-  this.pending=0;this.stats=this._freshStats();this._plan=null;this._clock=0;
-  this.engine=new ZenEngine({gravityMode:'subzero',leveling:'off',garbageMode:'off',spinMode:'tspins',comboMode:'multiplier'});
+  this.pending=0;this._incoming=[];this._placementCleared=false;this.stats=this._freshStats();this._plan=null;this._clock=0;
+  this.engine=new ZenEngine({gravityMode:'subzero',leveling:'off',garbageMode:'off',spinMode:'allspins+',comboMode:'multiplier'});
   this.engine.paused=true;this.engine.emit=event=>this._onEngine(event);
   this._advisor=null;this._advisorName='Cold Clear 2';this._adviceRequest=null;
   if(advisor)this.setAdvisor(advisor);
@@ -139,14 +139,14 @@ export class Opponent{
   if(!this.enabled)return;
   if(event.type==='clear'){
    const generated=Math.max(0,Math.floor(Number(event.attack)||0));
-   const cancelled=Math.min(this.pending,generated);this.pending-=cancelled;this.stats.cancelled+=cancelled;
+   const cancelled=Math.min(this.pending,generated);this.pending-=cancelled;let remaining=cancelled;for(const b of this._incoming){const n=Math.min(remaining,b.amount);b.amount-=n;remaining-=n;}this._incoming=this._incoming.filter(b=>b.amount>0);this.stats.cancelled+=cancelled;
    if(cancelled)this._event('cancel',{amount:cancelled,pending:this.pending});
    const amount=generated-cancelled;
    this._event('clear',{...event,generated,cancelled,sent:amount});
    if(amount){this.stats.sent+=amount;this._event('attack',{amount,generated,cancelled});}
   }else if(event.type==='recover'){
    this.stats.kos++;this._event('recover',{rows:event.rows,kos:this.stats.kos});
-  }else if(event.type==='lock'){
+  }else if(event.type==='lock'){this._placementCleared=event.lines>0;
    this.stats.pieces=this.engine.stats.pieces;this._event('lock',{piece:event.piece,lines:event.lines,pieces:this.stats.pieces});
   }else if(['move','rotate','hold','drop','spawn'].includes(event.type))this._event(event.type,event);
  }
@@ -158,7 +158,7 @@ export class Opponent{
  }
  stop(){this.enabled=false;this.engine.paused=true;this._plan=null;this._clock=0;this._adviceRequest=null;this.status='Paused';return this;}
  reset(){
-  this.pending=0;this.stats=this._freshStats();this._plan=null;this._clock=0;this._adviceRequest=null;this.name='Practice CPU';
+  this.pending=0;this._incoming=[];this._placementCleared=false;this.stats=this._freshStats();this._plan=null;this._clock=0;this._adviceRequest=null;this.name='Practice CPU';
   this.status=this._advisor?'Loading community AI…':'Local practice AI';
   this.engine.reset();this.engine.paused=!this.enabled;
   this._event('reset');return this;
@@ -180,13 +180,12 @@ export class Opponent{
  }
  receiveAttack(value){
   if(!this.enabled||!Number.isFinite(Number(value)))return 0;
-  const amount=Math.min(20-this.pending,Math.max(0,Math.floor(Number(value))));
+  const amount=Math.min(40-this.pending,Math.max(0,Math.floor(Number(value))));
   if(!amount)return 0;
-  this.pending+=amount;this.stats.received+=amount;this._event('incoming',{amount,pending:this.pending});return amount;
+  this.pending+=amount;this._incoming.push({amount,age:0});this.stats.received+=amount;this._event('incoming',{amount,pending:this.pending});return amount;
  }
  _applyPending(){
-  const amount=Math.min(20,this.pending);if(!amount)return;
-  this.pending-=amount;this.engine.addGarbage(amount);this.stats.applied+=amount;
+  if(this._placementCleared)return;let allowance=8,total=0;for(const batch of this._incoming){if(batch.age<650||allowance<=0)continue;const n=Math.min(allowance,batch.amount);this.engine.addGarbage(n);batch.amount-=n;allowance-=n;total+=n;}this._incoming=this._incoming.filter(b=>b.amount>0);const amount=total;if(!amount)return;this.pending-=amount;this.stats.applied+=amount;
   // The queued garbage arrives between pieces; show the new piece at its spawn ceiling.
   const p=this.engine.piece;
   if(p&&!this.engine.collides(p.x,VISIBLE_START,p.rotation,p.type))p.y=VISIBLE_START;
@@ -234,7 +233,7 @@ export class Opponent{
  }
  update(dt){
   if(!this.enabled||this.engine.paused||!Number.isFinite(dt)||dt<=0)return;
-  dt=Math.min(dt,1000);this.engine.update(dt);this.stats.time=this.engine.stats.time;
+  dt=Math.min(dt,1000);for(const batch of this._incoming)batch.age+=dt;this.engine.update(dt);this.stats.time=this.engine.stats.time;
   this._clock+=dt;let steps=0,placements=0;
   while(steps++<40&&placements<2){
    if(!this._plan&&!this._preparePlan())break;

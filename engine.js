@@ -55,7 +55,7 @@ const HALF_KICKS = {
 };
 const DEFAULTS = {
  gravity:.8, gravityMode:'relaxed', lockDelay:500, maxLockResets:15,
- infiniteHold:false, leveling:'on', spinMode:'tspins', comboMode:'multiplier', kickTable:'srsplus',
+ infiniteHold:false, leveling:'on', spinMode:'allspins+', comboMode:'multiplier', kickTable:'srsplus',
  garbageMode:'off', garbageAmount:1, garbageInterval:4, messiness:100, cheeseHeight:6
 };
 const emptyRow = () => Array(WIDTH).fill(null);
@@ -76,7 +76,7 @@ export class ZenEngine {
   this.board=emptyBoard();this.queue=[];this.held=null;this.canHold=true;this.piece=null;
   this.stats={score:0,lines:0,level:1,pieces:0,time:0,combo:-1,b2b:-1,pps:0,apm:0,attack:0,xp:0,topouts:0,tspins:0,quads:0,perfectClears:0,lastClear:''};
   this._rngState=(Number(this.settings.seed)>>>0)||((Date.now()^(Math.random()*0xffffffff))>>>0)||1;
-  this._fallTime=0;this._lockTime=0;this._lockResets=0;this._lastRotation=null;this._garbageClock=0;
+  this._garbageRngState=(this._rngState^0x9e3779b9)>>>0||1;this._fallTime=0;this._lockTime=0;this._lockResets=0;this._lastRotation=null;this._garbageClock=0;
   this._garbageHole=-1;this._pendingGarbage=0;this._garbageFraction=0;
   this._history=[];this._future=[];this.paused=false;
   this._fillQueue();
@@ -105,6 +105,7 @@ export class ZenEngine {
   let n=this._rngState; n^=n<<13;n^=n>>>17;n^=n<<5;this._rngState=n>>>0;
   return this._rngState/4294967296;
  }
+ _garbageRandom(){let n=this._garbageRngState||1;n^=n<<13;n^=n>>>17;n^=n<<5;this._garbageRngState=n>>>0;return this._garbageRngState/4294967296;}
  _fillQueue() {
   while(this.queue.length<14) {
    const bag=Object.keys(BASE);
@@ -329,8 +330,10 @@ export class ZenEngine {
  }
  _insertGarbage(lines,adjustPiece=true) {
   const amount=Math.round(limit(lines,0,HEIGHT-2,0));if(!amount)return 0;
+  const cheese=String(this.settings.garbageMode).startsWith('cheese');
+  if(!cheese&&(this._garbageHole<0||this._garbageRandom()<limit(this.settings.messiness,0,100,100)/100))this._garbageHole=Math.floor(this._garbageRandom()*WIDTH);
   for(let i=0;i<amount;i++) {
-   if(this._garbageHole<0||this._random()<limit(this.settings.messiness,0,100,100)/100)this._garbageHole=Math.floor(this._random()*WIDTH);
+   if(cheese&&(this._garbageHole<0||this._garbageRandom()<limit(this.settings.messiness,0,100,100)/100))this._garbageHole=Math.floor(this._garbageRandom()*WIDTH);
    const row=Array(WIDTH).fill('G');row[this._garbageHole]=null;this.board.shift();this.board.push(row);
   }
   if(adjustPiece&&this.piece) {
@@ -352,12 +355,12 @@ export class ZenEngine {
 
  _capture() {
   return clone({version:1,board:this.board,piece:this.piece,queue:this.queue,held:this.held,canHold:this.canHold,stats:this.stats,
-   rng:this._rngState,fallTime:this._fallTime,lockTime:this._lockTime,lockResets:this._lockResets,lastRotation:this._lastRotation,
+   rng:this._rngState,garbageRng:this._garbageRngState,fallTime:this._fallTime,lockTime:this._lockTime,lockResets:this._lockResets,lastRotation:this._lastRotation,
    garbageClock:this._garbageClock,garbageHole:this._garbageHole,pendingGarbage:this._pendingGarbage,garbageFraction:this._garbageFraction});
  }
  _apply(data) {
   this.board=clone(data.board);this.piece={...data.piece};this.queue=[...data.queue];this.held=data.held||null;this.canHold=!!data.canHold;
-  this.stats={...this.stats,...data.stats};this._rngState=(data.rng>>>0)||1;this._fallTime=data.fallTime||0;this._lockTime=data.lockTime||0;
+  this.stats={...this.stats,...data.stats};this._rngState=(data.rng>>>0)||1;this._garbageRngState=(data.garbageRng>>>0)||((this._rngState^0x9e3779b9)>>>0)||1;this._fallTime=data.fallTime||0;this._lockTime=data.lockTime||0;
   this._lockResets=data.lockResets||0;this._lastRotation=data.lastRotation?{...data.lastRotation}:null;
   this._garbageClock=data.garbageClock||0;this._garbageHole=Number.isInteger(data.garbageHole)?data.garbageHole:-1;
   this._pendingGarbage=data.pendingGarbage||0;this._garbageFraction=data.garbageFraction||0;this._rates();

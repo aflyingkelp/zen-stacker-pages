@@ -1,4 +1,4 @@
-import {createColdClear} from './coldclear-core.js';
+import {createColdClear} from './coldclear-core.js?v=6';
 
 let engine;
 const ready=(async()=>{

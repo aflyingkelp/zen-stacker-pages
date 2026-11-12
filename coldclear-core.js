@@ -1,4 +1,4 @@
-import {SHAPES,HEIGHT} from './engine.js';
+import {SHAPES,HEIGHT} from './engine.js?v=6';
 
 // TBP uses upward-positive centers; ZenEngine uses downward-positive matrix origins.
 const CELLS={
