@@ -28,3 +28,13 @@ practice CPU are original code for this project. WASM suggestions are validated
 through the game's own movement and kick rules before they are executed. The
 opponent is labeled Cold Clear 2 only after accepting an actual WASM suggestion;
 load failures, timeouts, or unreachable suggestions use the Practice CPU.
+
+Selectable chouhy Cold Clear 2 fork
+Source: https://github.com/chouhy/cold-clear-2
+Pinned revision b20a92b0ed3230dd910d0674f7a09c552a34dd46.
+Browser port: https://github.com/61bi-234469/s2-bot-lab/tree/main/bot/cold-clear-2-chouhy
+Binary: https://61bi-234469.github.io/s2-bot-lab/cold_clear_2_chouhy.wasm
+Retrieved 2026-11-12. SHA-256: 38df4a1d467fadc7952b216280c908df1bdb7fbcf37697462b36f48964550b4e
+MIT license choice; the Apache alternative and upstream provenance are adjacent.
+Specialty descriptions paraphrase the upstream README and port UPSTREAM.md.
+The Practice CPU is original Zen code and is not an imported GitHub bot.

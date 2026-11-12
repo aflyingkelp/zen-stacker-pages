@@ -1,14 +1,15 @@
+import {botProfile} from './bots.js?v=8';
 import {RealtimeClient} from './vendor/realtime.js';
-import {REALTIME_URL,PUBLISHABLE_KEY} from './network-config.js?v=7';
-import {ZenEngine} from './engine.js?v=7';
-import {Opponent} from './opponent.js?v=7';
+import {REALTIME_URL,PUBLISHABLE_KEY} from './network-config.js?v=8';
+import {ZenEngine} from './engine.js?v=8';
+import {Opponent} from './opponent.js?v=8';
 const size=n=>Math.max(1,Math.min(4,Math.floor(Number(n)||1)));
 const pps=n=>Math.max(.1,Math.min(10,Number(n)||1.1));
 export class NetworkSession {
- constructor(){this.id=crypto.randomUUID();this.active=false;this.started=false;this.round=null;this.status='Offline';this.roster=[];this.sizes=[1,1];this.team=0;this.botPPS=1.1;this.onStart=()=>{};this.onStatus=()=>{};this.onRoster=()=>{};this.onAttack=()=>{};this.onState=()=>{};this.onKO=()=>{};this.onPause=()=>{};this.onBotAttack=()=>{};this.onEliminated=()=>{};this.onResult=()=>{};this.ended=false;this.seen=new Set();this.lastState=0;this.targets=new Map();}
+ constructor(){this.id=crypto.randomUUID();this.active=false;this.started=false;this.round=null;this.status='Offline';this.roster=[];this.sizes=[1,1];this.team=0;this.botPPS=1.1;this.botProfile='upstream';this.onStart=()=>{};this.onStatus=()=>{};this.onRoster=()=>{};this.onAttack=()=>{};this.onState=()=>{};this.onKO=()=>{};this.onPause=()=>{};this.onBotAttack=()=>{};this.onEliminated=()=>{};this.onResult=()=>{};this.ended=false;this.seen=new Set();this.lastState=0;this.targets=new Map();}
  _status(text){this.status=text;this.onStatus(text);}
  async connect(code=null,options={}){
-  await this.leave();this.role=code?'guest':'host';this.autoStart=options.autoStart!==false;this.team=options.team===1?1:0;this.sizes=[size(options.a),size(options.b)];this.botPPS=pps(options.pps);this.host=this.role==='host'?this.id:null;this.roster=this.role==='host'?[{id:this.id,team:this.team,bot:false,alive:true,name:'Host'}]:[];
+  await this.leave();this.role=options.host===true?'host':code?'guest':'host';this.playerName=String(options.name||'Player').slice(0,18);this.autoStart=options.autoStart!==false;this.team=options.team===1?1:0;this.sizes=[size(options.a),size(options.b)];this.botPPS=pps(options.pps);this.botProfile=botProfile(options.profile);this.host=this.role==='host'?this.id:null;this.roster=this.role==='host'?[{id:this.id,team:this.team,bot:false,alive:true,name:String(options.name||'Host').slice(0,18)}]:[];
   this.code=code?String(code).replace(/[^a-f0-9]/gi,'').toLowerCase():crypto.randomUUID().replaceAll('-','');if(!/^[a-f0-9]{32}$/.test(this.code))throw Error('Paste the full invite code or invite link.');
   // v2 separates team rooms from older two-player clients.
   this.client=new RealtimeClient(REALTIME_URL,{params:{apikey:PUBLISHABLE_KEY},transport:globalThis.WebSocket});
@@ -16,23 +17,23 @@ export class NetworkSession {
   this.channel.on('broadcast',{event:'game'},({payload})=>this._message(payload));
   this.channel.on('presence',{event:'leave'},({leftPresences})=>{for(const presence of leftPresences){const member=this.roster.find(m=>m.id===presence.id);if(!member||member.id===this.id)continue;if(this.started){this._status(member.name+' disconnected. Match paused; create a new room to continue.');this.onPause(true);this.send('pause',{paused:true});}else if(this.role==='host'){this.roster=this.roster.filter(m=>m.id!==member.id);this._lobby();}}});
   try{await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Connection timed out. Try again.')),12000);this.channel.subscribe(status=>{if(status==='SUBSCRIBED'){clearTimeout(timer);this.channel.track({id:this.id});resolve();}else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){clearTimeout(timer);this._status('Connection lost. Rejoin the room.');reject(Error('Could not connect to multiplayer.'));}});});}catch(e){await this.leave();throw e;}
-  this.active=true;this._status(this.role==='host'?'Room ready. Invite friends or fill empty seats with bots.':'Joining lobby…');this.timer=setInterval(()=>{if(!this.started&&this.role==='guest')this.send('hello',{team:this.team});else this.send('ping');},1500);if(this.role==='guest')this.send('hello',{team:this.team});else this._lobby();return this.code;
+  this.active=true;this._status(this.role==='host'?'Room ready. Invite friends or fill empty seats with bots.':'Joining lobby…');this.timer=setInterval(()=>{if(!this.started&&this.role==='guest')this.send('hello',{team:this.team,name:this.playerName});else this.send('ping');},1500);if(this.role==='guest')this.send('hello',{team:this.team,name:this.playerName});else this._lobby();return this.code;
  }
  send(kind,data={}){if(!this.active||!this.channel)return;this.channel.send({type:'broadcast',event:'game',payload:{...data,kind,from:this.id,id:crypto.randomUUID(),round:this.round}}).catch(()=>this._status('Connection interrupted.'));}
  _validRoster(roster){return Array.isArray(roster)&&roster.length>=2&&roster.length<=8&&new Set(roster.map(m=>m.id)).size===roster.length&&roster.every(m=>typeof m.id==='string'&&m.id.length<100&&[0,1].includes(m.team)&&typeof m.bot==='boolean'&&typeof m.name==='string'&&m.name.length<=40)&&[0,1].every(t=>roster.filter(m=>m.team===t).length>=1&&roster.filter(m=>m.team===t).length<=4);}
- _lobby(){this.onRoster(this.roster);this.send('lobby',{roster:this.roster,sizes:this.sizes,botPPS:this.botPPS});}
+ _lobby(){this.onRoster(this.roster);this.send('lobby',{roster:this.roster,sizes:this.sizes,botPPS:this.botPPS,botProfile:this.botProfile});}
  _message(p){
   if(!p||typeof p!=='object'||p.from===this.id||typeof p.from!=='string'||typeof p.id!=='string'||this.seen.has(p.id))return;this.seen.add(p.id);if(this.seen.size>1000)this.seen.delete(this.seen.values().next().value);
   if(p.kind==='hello'&&this.role==='host'){
    if(this.roster.some(m=>m.id===p.from)){this.started?this._announce():this._lobby();return;}
    if(this.started){this.send('busy',{to:p.from});return;}const preferred=p.team===1?1:0;let team=preferred;if(this.roster.filter(m=>m.team===team).length>=this.sizes[team])team=1-team;if(this.roster.filter(m=>m.team===team).length>=this.sizes[team]){this.send('busy',{to:p.from});return;}
-   this.roster.push({id:p.from,team,bot:false,alive:true,name:'Player '+(this.roster.length+1)});this._lobby();if(this.autoStart&&this.roster.length===this.sizes[0]+this.sizes[1])this.startRound(false);return;
+   this.roster.push({id:p.from,team,bot:false,alive:true,name:typeof p.name==='string'?p.name.slice(0,18):'Player '+(this.roster.length+1)});this._lobby();if(this.autoStart&&this.roster.length===this.sizes[0]+this.sizes[1])this.startRound(false);return;
   }
   if(p.kind==='busy'&&p.to===this.id){this._status('This room is full or already playing.');return;}
   if((p.kind==='lobby'||p.kind==='start')&&this.role==='guest'){
    if(this.host&&this.host!==p.from)return;
    const valid=p.kind==='start'?this._validRoster(p.roster):Array.isArray(p.roster)&&p.roster.length<=8&&p.roster.every(m=>typeof m.id==='string'&&[0,1].includes(m.team)&&typeof m.bot==='boolean'&&typeof m.name==='string');
-   if(!valid||!p.roster.some(m=>m.id===this.id)||!p.roster.some(m=>m.id===p.from&&!m.bot))return;this.host=p.from;this.roster=p.roster;this.team=this.roster.find(m=>m.id===this.id).team;this.sizes=Array.isArray(p.sizes)?p.sizes.map(size):[1,1];this.botPPS=pps(p.botPPS);this.onRoster(this.roster);
+   if(!valid||!p.roster.some(m=>m.id===this.id)||!p.roster.some(m=>m.id===p.from&&!m.bot))return;this.host=p.from;this.roster=p.roster;this.team=this.roster.find(m=>m.id===this.id).team;this.sizes=Array.isArray(p.sizes)?p.sizes.map(size):[1,1];this.botPPS=pps(p.botPPS);this.botProfile=botProfile(p.botProfile);this.onRoster(this.roster);
    if(p.kind==='lobby'){this._status('Lobby ready · you are on Team '+(this.team?'B':'A')+'. Waiting for host to start.');return;}
    if(!Number.isInteger(p.seed)||p.seed<1||typeof p.nextRound!=='string'||p.nextRound===this.round)return;this.seed=p.seed;this.round=p.nextRound;this.started=true;this.ended=false;this.targets.clear();this._status('Connected · '+this.sizes.join('v')+' team battle');this.onStart(this.seed);return;
   }
@@ -46,7 +47,7 @@ export class NetworkSession {
   if(p.kind==='ko'&&this.role==='host'&&actor.id===p.from)this._knockout(actor.id);
   if(p.kind==='pause'&&typeof p.paused==='boolean')this.onPause(p.paused);
  }
- _announce(){this.send('start',{nextRound:this.round,seed:this.seed,roster:this.roster,sizes:this.sizes,botPPS:this.botPPS});}
+ _announce(){this.send('start',{nextRound:this.round,seed:this.seed,roster:this.roster,sizes:this.sizes,botPPS:this.botPPS,botProfile:this.botProfile});}
  startRound(fillBots=true){
   if(this.role!=='host')return false;
   if(fillBots)for(const team of [0,1])while(this.roster.filter(m=>m.team===team).length<this.sizes[team])this.roster.push({id:'bot-'+crypto.randomUUID(),team,bot:true,alive:true,name:'CPU '+(this.roster.filter(m=>m.bot).length+1)});
@@ -86,13 +87,13 @@ export class OpponentRouter {
   if(!this.network.active){this.cpu.reset();return this;}this._disposeBots();
   for(const actor of this.network.roster){if(actor.id===this.network.id)continue;
    if(actor.bot&&this.network.role==='host'){
-    const bot=new Opponent({difficulty:this.cpu.difficulty,pps:this.network.botPPS,emit:event=>{if(event.type==='attack')this.network.routeAttack(actor.id,event.amount);if(event.type==='eliminated'){this.network.send('state',{actor:actor.id,state:bot.engine._capture()});this.network.eliminate(actor.id);}}});
+    const bot=new Opponent({difficulty:this.cpu.difficulty,pps:this.network.botPPS,profile:this.network.botProfile,emit:event=>{if(event.type==='attack')this.network.routeAttack(actor.id,event.amount);if(event.type==='eliminated'){this.network.send('state',{actor:actor.id,state:bot.engine._capture()});this.network.eliminate(actor.id);}}});
     bot.engine.settings.seed=this.network.seed;bot.engine.settings.topoutMode='eliminate';bot.start();this.bots.set(actor.id,bot);this.units.set(actor.id,bot.engine);
    }else{const e=new ZenEngine({gravityMode:'subzero',seed:this.network.seed});e.paused=true;this.units.set(actor.id,e);}
   }
   return this;
  }
- setDifficulty(v){return this.cpu.setDifficulty(v);}setPPS(v){return this.cpu.setPPS(v);}
+ setProfile(v){return this.cpu.setProfile(v);}setDifficulty(v){return this.cpu.setDifficulty(v);}setPPS(v){return this.cpu.setPPS(v);}
  receiveAttack(n){if(this.network.active)return this.network.attack(Math.min(20,n));return this.cpu.receiveAttack(n);}
  update(dt){
   if(!this.network.active){this.cpu.update(dt);return;}if(this.network.ended)return;

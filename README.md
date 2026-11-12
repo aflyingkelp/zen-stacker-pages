@@ -56,3 +56,21 @@ CPU battles and team multiplayer now use elimination: top-out freezes the final 
 CPU PPS presets are 0.25, 0.55, 1.1, 2, 3, 5 and 10, with a custom target from 0.1–10. The measured PPS remains on each board. Targets can be limited by AI calculation time and device performance. Team rooms use the host’s target at creation for all bot seats; humans can choose either team before joining. A full preferred team falls back to the other side.
 
 Tests cover all sixteen team formats, bot fill, friendly-fire prevention, dead-player targeting, win/loss, rematches, frozen elimination saves, and actual CPU placement pace. The live network suite also checks a 3v1 room with three human clients and one bot. A disconnected participant pauses the match; create a fresh room to continue.
+
+## Arena redesign and bot selection
+
+The interface now uses a compact, square-edged competition console, flat pieces, high-contrast typography, and a signal-color theme. Your keys, handling and saved solo progress are preserved. The first load of this design switches to solid pieces and disables glow.
+
+Choose Cold Clear 2 (upstream), CC2 · chouhy (its all-spin evaluator fork), or the original Practice CPU above the board. Each has a short specialty description and an upstream GitHub link where applicable. Both GitHub choices execute their own actual WASM binary in a local worker; they are not renamed versions of the same binary. The Practice CPU is original local code. All third-party licenses and pinned provenance are in dist/licenses.
+
+## Zen League
+
+Zen League is a global community Elo ladder for single-round 1v1 matches, separate from TETR.IO’s Tetra League. Create a public player name, back up the device’s player key, and select Find Ranked Match. The queue pairs waiting players near their ratings and expands its range with wait time. Custom rooms, team battles and bots never affect this ladder.
+
+Ratings are computed in Supabase, not accepted from browser score submissions. Both players must report the same result, or a player may voluntarily forfeit. Conflicting reports change no ratings. Repeated result submissions are idempotent. Repeated-pair gains are limited to three rated wins per hour. Gameplay is still client-authoritative: this is a community ladder, not an anti-cheat-certified competition.
+
+Player sessions use random 256-bit device keys; only their SHA-256 hashes are stored server-side. Private tables deny browser access. A Supabase Edge Function authenticates device keys and calls a service-only database function; privileged credentials remain in the function environment. Names, ratings and win/loss records are public. Player-key backup/restore and sign-out are in the League panel. Clearing browser storage without a backup loses access to that profile.
+
+Backend source: backend/league.sql and backend/league-edge.ts. The edge function performs its own device-key authentication, so its platform JWT check is disabled. Never place the service-role key into the website. Public-client API keys are not player authentication.
+
+Validation: npm test covers both WASM bot engines, engine rules, all sixteen team formats, PPS and elimination. npm run test:network exercises real Supabase rooms. npm run test:league creates temporary QA profiles and tests matchmaking, authentication, consensus, Elo and leaderboard output; clean up only the generated IDs in backend/.qa-player-ids.json after that test.

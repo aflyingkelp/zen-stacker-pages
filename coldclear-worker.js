@@ -1,10 +1,12 @@
-import {createColdClear} from './coldclear-core.js?v=7';
+import {BOTS,botProfile} from './bots.js?v=8';
+const profile=BOTS[botProfile(new URL(import.meta.url).searchParams.get('bot'))];
+import {createColdClear} from './coldclear-core.js?v=8';
 
 let engine;
 const ready=(async()=>{
- const response=await fetch(new URL('./coldclear.wasm',import.meta.url));
+ const response=await fetch(new URL('./'+profile.file,import.meta.url));
  if(!response.ok)throw Error('Cold Clear engine download failed.');
- engine=await createColdClear(await response.arrayBuffer());
+ engine=await createColdClear(await response.arrayBuffer());engine.name=profile.name;
  postMessage({type:'ready',name:engine.name});
 })();
 ready.catch(error=>postMessage({type:'error',error:error.message}));

@@ -1,5 +1,6 @@
-import {ZenEngine,SHAPES,WIDTH,HEIGHT,VISIBLE_START} from './engine.js?v=7';
-import {ColdClearClient} from './coldclear-client.js?v=7';
+import {BOTS,botProfile} from './bots.js?v=8';
+import {ZenEngine,SHAPES,WIDTH,HEIGHT,VISIBLE_START} from './engine.js?v=8';
+import {ColdClearClient} from './coldclear-client.js?v=8';
 
 export const DIFFICULTIES=Object.freeze({easy:.55,normal:1.1,hard:2});
 const FULL_ROW=(1<<WIDTH)-1;
@@ -124,9 +125,9 @@ function animationPath(path){
 }
 
 export class Opponent{
- constructor({difficulty='normal',pps=null,emit=()=>{},advisor=null}={}){
+ constructor({difficulty='normal',pps=null,profile='upstream',emit=()=>{},advisor=null}={}){
   this.emit=typeof emit==='function'?emit:()=>{};
-  this.enabled=false;this.difficulty=clampDifficulty(difficulty);this.pps=pps==null?null:this._clampPPS(pps);this.name='Practice CPU';this.status='Local practice AI';
+  this.botProfile=botProfile(profile);this.enabled=false;this.difficulty=clampDifficulty(difficulty);this.pps=pps==null?null:this._clampPPS(pps);this.name='Practice CPU';this.status='Local practice AI';
   this.pending=0;this._incoming=[];this._placementCleared=false;this.stats=this._freshStats();this._plan=null;this._clock=0;
   this.engine=new ZenEngine({gravityMode:'subzero',leveling:'off',garbageMode:'off',spinMode:'allspins+',comboMode:'multiplier'});
   this.engine.paused=true;this.engine.emit=event=>this._onEngine(event);
@@ -152,8 +153,8 @@ export class Opponent{
   }else if(['move','rotate','hold','drop','spawn'].includes(event.type))this._event(event.type,event);
  }
  start(){
-  if(!this._advisor&&typeof Worker==='function'){
-   try{this._client??=new ColdClearClient();this.setAdvisor(this._client);}catch{this.status='Practice CPU · AI unavailable';}
+  if(this.botProfile!=='practice'&&!this._advisor&&typeof Worker==='function'){
+   try{this._client??=new ColdClearClient(this.botProfile);this.setAdvisor(this._client);}catch{this.status='Practice CPU · AI unavailable';}
   }
   this.enabled=true;this.reset();this._event('start',{difficulty:this.difficulty,name:this.name});return this;
  }
@@ -165,6 +166,7 @@ export class Opponent{
   this._event('reset');return this;
  }
  setDifficulty(value){this.difficulty=clampDifficulty(value);this._event('difficulty',{difficulty:this.difficulty});return this.difficulty;}
+ setProfile(value){const next=botProfile(value);if(next===this.botProfile)return next;const playing=this.enabled;this.stop();this._client?.dispose();this._client=null;this._advisor=null;this.botProfile=next;if(playing)this.start();return next;}
  _clampPPS(value){return Number.isFinite(Number(value))?Math.max(.1,Math.min(10,Number(value))):1.1;}
  get targetPPS(){return this.pps??DIFFICULTIES[this.difficulty];}
  setPPS(value){const next=this._clampPPS(value);if(next===this.pps)return next;this.pps=next;if(this._plan?.length)this._stepMs=1000/this.targetPPS/this._plan.length;return this.pps;}

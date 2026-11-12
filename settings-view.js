@@ -1,4 +1,4 @@
-import {DEFAULT_KEYS} from './config.js?v=7';
+import {DEFAULT_KEYS} from './config.js?v=8';
 export const keyName=code=>({ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓',Space:'Space',ControlLeft:'Ctrl',ControlRight:'Ctrl',ShiftLeft:'Shift',ShiftRight:'Shift',NumpadEnter:'Num Enter',Backspace:'Backspace'})[code]||code.replace(/^Key/,'').replace(/^Digit/,'').replace(/^Numpad/,'Num ');
 export function settingsView(ui,game,tab,captureKey){
  const group=title=>`<div class="settings-group-title">${title}</div>`;
@@ -46,7 +46,7 @@ export function settingsView(ui,game,tab,captureKey){
  }
  if(tab==='look'){
  html+=group('GAMEPLAY & VIDEO');
- html+=select('theme','Accent color','Choose the atmosphere around the board.',[['violet','DUSK VIOLET'],['mint','QUIET MINT'],['rose','SOFT ROSE'],['blue','MIDNIGHT BLUE']],'ui');
+ html+=select('theme','Accent color','Interface accent color.',[['violet','SIGNAL ORANGE'],['mint','FIELD GREEN'],['rose','DUST ROSE'],['blue','STEEL BLUE']],'ui');
  html+=select('pieceSkin','Tetromino skin','Apply the skin to your board, hold, next queue, and CPU.',[['color','STANDARD COLORS'],['gray','GRAY / MONOCHROME'],['solid','SOLID COLORS · NO BORDERS'],['solid-gray','SOLID GRAY · NO BORDERS']],'ui');
  html+=select('actionText','Action text','Show clear names and scoring feedback.',[['off','OFF'],['some','SOME'],['all','ALL']],'ui');
  html+=toggle('ghost','Show shadow piece','Preview the landing position.');
