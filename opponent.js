@@ -1,5 +1,5 @@
-import {ZenEngine,SHAPES,WIDTH,HEIGHT,VISIBLE_START} from './engine.js?v=6';
-import {ColdClearClient} from './coldclear-client.js?v=6';
+import {ZenEngine,SHAPES,WIDTH,HEIGHT,VISIBLE_START} from './engine.js?v=7';
+import {ColdClearClient} from './coldclear-client.js?v=7';
 
 export const DIFFICULTIES=Object.freeze({easy:.55,normal:1.1,hard:2});
 const FULL_ROW=(1<<WIDTH)-1;
@@ -124,9 +124,9 @@ function animationPath(path){
 }
 
 export class Opponent{
- constructor({difficulty='normal',emit=()=>{},advisor=null}={}){
+ constructor({difficulty='normal',pps=null,emit=()=>{},advisor=null}={}){
   this.emit=typeof emit==='function'?emit:()=>{};
-  this.enabled=false;this.difficulty=clampDifficulty(difficulty);this.name='Practice CPU';this.status='Local practice AI';
+  this.enabled=false;this.difficulty=clampDifficulty(difficulty);this.pps=pps==null?null:this._clampPPS(pps);this.name='Practice CPU';this.status='Local practice AI';
   this.pending=0;this._incoming=[];this._placementCleared=false;this.stats=this._freshStats();this._plan=null;this._clock=0;
   this.engine=new ZenEngine({gravityMode:'subzero',leveling:'off',garbageMode:'off',spinMode:'allspins+',comboMode:'multiplier'});
   this.engine.paused=true;this.engine.emit=event=>this._onEngine(event);
@@ -144,6 +144,7 @@ export class Opponent{
    const amount=generated-cancelled;
    this._event('clear',{...event,generated,cancelled,sent:amount});
    if(amount){this.stats.sent+=amount;this._event('attack',{amount,generated,cancelled});}
+  }else if(event.type==='eliminated'){this.enabled=false;this.engine.paused=true;this._plan=null;this.stats.kos++;this.emit({type:'eliminated'});
   }else if(event.type==='recover'){
    this.stats.kos++;this._event('recover',{rows:event.rows,kos:this.stats.kos});
   }else if(event.type==='lock'){this._placementCleared=event.lines>0;
@@ -164,6 +165,9 @@ export class Opponent{
   this._event('reset');return this;
  }
  setDifficulty(value){this.difficulty=clampDifficulty(value);this._event('difficulty',{difficulty:this.difficulty});return this.difficulty;}
+ _clampPPS(value){return Number.isFinite(Number(value))?Math.max(.1,Math.min(10,Number(value))):1.1;}
+ get targetPPS(){return this.pps??DIFFICULTIES[this.difficulty];}
+ setPPS(value){const next=this._clampPPS(value);if(next===this.pps)return next;this.pps=next;if(this._plan?.length)this._stepMs=1000/this.targetPPS/this._plan.length;return this.pps;}
  /** Advisor returns a promise of engine-coordinate {type,x,y,rotation}, or an array of alternatives. */
  setAdvisor(advisor,{name='Cold Clear 2'}={}){
   this._advisor=typeof advisor==='function'?advisor:typeof advisor?.suggest==='function'?advisor.suggest.bind(advisor):null;
@@ -185,7 +189,7 @@ export class Opponent{
   this.pending+=amount;this._incoming.push({amount,age:0});this.stats.received+=amount;this._event('incoming',{amount,pending:this.pending});return amount;
  }
  _applyPending(){
-  if(this._placementCleared)return;let allowance=8,total=0;for(const batch of this._incoming){if(batch.age<650||allowance<=0)continue;const n=Math.min(allowance,batch.amount);this.engine.addGarbage(n);batch.amount-=n;allowance-=n;total+=n;}this._incoming=this._incoming.filter(b=>b.amount>0);const amount=total;if(!amount)return;this.pending-=amount;this.stats.applied+=amount;
+  if(this.engine.dead||this._placementCleared)return;let allowance=8,total=0;for(const batch of this._incoming){if(batch.age<650||allowance<=0)continue;const n=Math.min(allowance,batch.amount);this.engine.addGarbage(n);batch.amount-=n;allowance-=n;total+=n;}this._incoming=this._incoming.filter(b=>b.amount>0);const amount=total;if(!amount)return;this.pending-=amount;this.stats.applied+=amount;
   // The queued garbage arrives between pieces; show the new piece at its spawn ceiling.
   const p=this.engine.piece;
   if(p&&!this.engine.collides(p.x,VISIBLE_START,p.rotation,p.type))p.y=VISIBLE_START;
@@ -214,7 +218,7 @@ export class Opponent{
   if(this.name!==label){this.name=label;this._event('engine',{name:label,advised});}
   this.stats.thinkMs=now()-before;
   this._plan=animationPath(placement?.path||[]);
-  this._stepMs=1000/DIFFICULTIES[this.difficulty]/this._plan.length;
+  this._stepMs=1000/this.targetPPS/this._plan.length;
   return true;
  }
  _step(){
@@ -235,7 +239,7 @@ export class Opponent{
   if(!this.enabled||this.engine.paused||!Number.isFinite(dt)||dt<=0)return;
   dt=Math.min(dt,1000);for(const batch of this._incoming)batch.age+=dt;this.engine.update(dt);this.stats.time=this.engine.stats.time;
   this._clock+=dt;let steps=0,placements=0;
-  while(steps++<40&&placements<2){
+  while(this.enabled&&!this.engine.dead&&steps++<40&&placements<2){
    if(!this._plan&&!this._preparePlan())break;
    if(this._clock<this._stepMs)break;
    this._clock-=this._stepMs;

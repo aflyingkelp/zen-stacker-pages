@@ -56,7 +56,7 @@ const HALF_KICKS = {
 const DEFAULTS = {
  gravity:.8, gravityMode:'relaxed', lockDelay:500, maxLockResets:15,
  infiniteHold:false, leveling:'on', spinMode:'allspins+', comboMode:'multiplier', kickTable:'srsplus',
- garbageMode:'off', garbageAmount:1, garbageInterval:4, messiness:100, cheeseHeight:6
+ topoutMode:'endless', garbageMode:'off', garbageAmount:1, garbageInterval:4, messiness:100, cheeseHeight:6
 };
 const emptyRow = () => Array(WIDTH).fill(null);
 const emptyBoard = () => Array.from({length:HEIGHT},emptyRow);
@@ -73,7 +73,7 @@ export class ZenEngine {
  }
 
  reset() {
-  this.board=emptyBoard();this.queue=[];this.held=null;this.canHold=true;this.piece=null;
+  this.dead=false;this.board=emptyBoard();this.queue=[];this.held=null;this.canHold=true;this.piece=null;
   this.stats={score:0,lines:0,level:1,pieces:0,time:0,combo:-1,b2b:-1,pps:0,apm:0,attack:0,xp:0,topouts:0,tspins:0,quads:0,perfectClears:0,lastClear:''};
   this._rngState=(Number(this.settings.seed)>>>0)||((Date.now()^(Math.random()*0xffffffff))>>>0)||1;
   this._garbageRngState=(this._rngState^0x9e3779b9)>>>0||1;this._fallTime=0;this._lockTime=0;this._lockResets=0;this._lastRotation=null;this._garbageClock=0;
@@ -140,7 +140,7 @@ export class ZenEngine {
   }
  }
  move(dx) {
-  if(this.paused||!this.piece||!Number.isFinite(dx)||dx===0) return false;
+  if(this.dead||this.paused||!this.piece||!Number.isFinite(dx)||dx===0) return false;
   const step=Math.sign(dx),steps=Math.min(40,Math.abs(Math.trunc(dx)));let moved=0;
   for(let n=0;n<steps;n++) {
    const grounded=this._grounded();
@@ -316,6 +316,8 @@ export class ZenEngine {
  }
 
  _recover() {
+  if(this.dead)return;
+  if(this.settings.topoutMode==='eliminate'){this.dead=true;this.paused=true;this.stats.topouts++;this._event('eliminated');return;}
   let removed=0;
   while((this.collides()||this.board.slice(0,22).some(row=>row.some(Boolean)))&&removed<HEIGHT) {
    this.board.pop();this.board.unshift(emptyRow());removed++;
@@ -344,7 +346,7 @@ export class ZenEngine {
   this._event('garbage',{lines:amount});return amount;
  }
  addGarbage(lines=1) {
-  if(this.paused)return 0;
+  if(this.dead||this.paused)return 0;
   this._future=[];return this._insertGarbage(lines,true);
  }
  _refillCheese(adjustPiece=true) {
@@ -354,12 +356,12 @@ export class ZenEngine {
  }
 
  _capture() {
-  return clone({version:1,board:this.board,piece:this.piece,queue:this.queue,held:this.held,canHold:this.canHold,stats:this.stats,
+  return clone({version:1,dead:this.dead,board:this.board,piece:this.piece,queue:this.queue,held:this.held,canHold:this.canHold,stats:this.stats,
    rng:this._rngState,garbageRng:this._garbageRngState,fallTime:this._fallTime,lockTime:this._lockTime,lockResets:this._lockResets,lastRotation:this._lastRotation,
    garbageClock:this._garbageClock,garbageHole:this._garbageHole,pendingGarbage:this._pendingGarbage,garbageFraction:this._garbageFraction});
  }
  _apply(data) {
-  this.board=clone(data.board);this.piece={...data.piece};this.queue=[...data.queue];this.held=data.held||null;this.canHold=!!data.canHold;
+  this.dead=data.dead===true;this.board=clone(data.board);this.piece={...data.piece};this.queue=[...data.queue];this.held=data.held||null;this.canHold=!!data.canHold;
   this.stats={...this.stats,...data.stats};this._rngState=(data.rng>>>0)||1;this._garbageRngState=(data.garbageRng>>>0)||((this._rngState^0x9e3779b9)>>>0)||1;this._fallTime=data.fallTime||0;this._lockTime=data.lockTime||0;
   this._lockResets=data.lockResets||0;this._lastRotation=data.lastRotation?{...data.lastRotation}:null;
   this._garbageClock=data.garbageClock||0;this._garbageHole=Number.isInteger(data.garbageHole)?data.garbageHole:-1;
@@ -389,11 +391,11 @@ export class ZenEngine {
    if(!validState(data))return false;
    const prior=this._capture(),settings=this.settings;
    this.settings={...DEFAULTS,...(data.settings||{})};this._apply(data);
-   if(this.collides()) {this.settings=settings;this._apply(prior);return false;}
+   if(this.collides()&&!this.dead) {this.settings=settings;this._apply(prior);return false;}
    this._history=Array.isArray(data.history)?data.history.filter(validState).slice(-30).map(clone):[];
    this._future=Array.isArray(data.future)?data.future.filter(validState).slice(-30).map(clone):[];
    this._turnStart=validState(data.turnStart)?clone(data.turnStart):this._capture();
-   this.paused=!!data.paused;this._fillQueue();this._event('restore');return true;
+   this.paused=this.dead||!!data.paused;this._fillQueue();this._event('restore');return true;
   } catch {return false;}
  }
 }

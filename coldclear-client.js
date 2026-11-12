@@ -2,7 +2,7 @@
 export class ColdClearClient{
  constructor(){
   this.name='Cold Clear 2';this.readyFlag=false;this.failed=false;this._requests=new Map();this._nextId=0;
-  this.worker=new Worker(new URL('./coldclear-worker.js?v=6',import.meta.url),{type:'module',name:'Cold Clear 2'});
+  this.worker=new Worker(new URL('./coldclear-worker.js?v=7',import.meta.url),{type:'module',name:'Cold Clear 2'});
   this.ready=new Promise((resolve,reject)=>{this._readyResolve=resolve;this._readyReject=reject;});
   // An idle client may fail before the first suggestion is requested.
   this.ready.catch(()=>{});

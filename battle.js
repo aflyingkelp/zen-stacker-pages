@@ -11,7 +11,7 @@ export class BattleSession {
   this.opponent = opponent;
   this.emit = typeof emit === 'function' ? emit : () => {};
   this.enabled = false;
-  this.stats = emptyStats();
+  this.stats = emptyStats();this.result=null;
   this._incoming = [];
   this._queuedForSpawn = 0;
   this._applying = false;
@@ -25,7 +25,7 @@ export class BattleSession {
  get pending() { return this.stats.pending; }
 
  _resetState() {
-  this.stats = emptyStats();
+  this.stats = emptyStats();this.result=null;
   this._incoming = [];
   this._queuedForSpawn = 0;
   this._applying = false;
@@ -39,7 +39,7 @@ export class BattleSession {
  }
 
  stop() {
-  this.enabled = false;
+  this.result=null;this.enabled = false;
   this._incoming = [];
   this.stats.pending = 0;
   this._queuedForSpawn = 0;
@@ -48,14 +48,17 @@ export class BattleSession {
  }
 
  reset() {
+  const ended=!!this.result;
   this._resetState();
-  if(this.enabled) this.opponent.reset();
+  if(this.enabled) ended?this.opponent.start():this.opponent.reset();
   return this;
  }
 
  setDifficulty(value) {
   return this.opponent.setDifficulty(value);
  }
+
+ _finish(winner){if(this.result)return;this.result=winner;this.opponent.stop();this.player.paused=true;this.emit({type:'result',winner});}
 
  _syncPending() {
   this._incoming = this._incoming.filter(batch => batch.amount > 0);
@@ -78,7 +81,7 @@ export class BattleSession {
  }
 
  _handleOpponentEvent(event) {
-  if(!this.enabled || !event) return;
+  if(!this.enabled || this.result || !event) return;
   if(event.type === 'attack') {
    const amount = Math.min(whole(event.amount), MAX_PENDING - this.stats.pending);
    if(!amount) return;
@@ -86,14 +89,14 @@ export class BattleSession {
    this.stats.received += amount;
    this._syncPending();
    this.emit({type:'incoming', amount, pending:this.stats.pending});
-  } else if(event.type === 'recover') {
-   this.stats.cpuKOs++;
+  } else if(['recover','eliminated'].includes(event.type)) {
+   this.stats.cpuKOs++;if(event.type==='eliminated'&&!this.opponent.network?.active)this._finish('player');
    this.emit({type:'ko', side:'cpu', playerKOs:this.stats.playerKOs, cpuKOs:this.stats.cpuKOs});
   }
  }
 
  handlePlayerEvent(event) {
-  if(!this.enabled || !event) return;
+  if(!this.enabled || this.result || !event) return;
   if(event.type === 'clear') {
    if(whole(event.lines) > 0) this._queuedForSpawn = 0;
    const raw = whole(event.attack);
@@ -111,8 +114,8 @@ export class BattleSession {
    this._queuedForSpawn = whole(event.lines) === 0 ? Math.min(MAX_RISE_PER_PIECE, this._incoming.reduce((sum, batch) => sum + (batch.age >= GARBAGE_DELAY ? batch.amount : 0), 0)) : 0;
   } else if(event.type === 'spawn') {
    this._applyQueuedGarbage();
-  } else if(event.type === 'recover') {
-   this.stats.playerKOs++;
+  } else if(['recover','eliminated'].includes(event.type)) {
+   this.stats.playerKOs++;if(event.type==='eliminated'&&!this.opponent.network?.active)this._finish('cpu');
    this.emit({type:'ko', side:'player', playerKOs:this.stats.playerKOs, cpuKOs:this.stats.cpuKOs});
   }
  }
@@ -154,7 +157,7 @@ export class BattleSession {
  }
 
  update(dt) {
-  if(!this.enabled || this.player.paused || typeof dt !== 'number' || !Number.isFinite(dt) || dt <= 0) return;
+  if(!this.enabled || this.result || (this.player.paused&&!this.player.dead) || typeof dt !== 'number' || !Number.isFinite(dt) || dt <= 0) return;
   const elapsed = Math.min(dt, 1000);
   for(const batch of this._incoming) batch.age += elapsed;
   this.opponent.update(elapsed);

@@ -1,4 +1,4 @@
-import {DEFAULT_KEYS} from './config.js?v=6';
+import {DEFAULT_KEYS} from './config.js?v=7';
 export const keyName=code=>({ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓',Space:'Space',ControlLeft:'Ctrl',ControlRight:'Ctrl',ShiftLeft:'Shift',ShiftRight:'Shift',NumpadEnter:'Num Enter',Backspace:'Backspace'})[code]||code.replace(/^Key/,'').replace(/^Digit/,'').replace(/^Numpad/,'Num ');
 export function settingsView(ui,game,tab,captureKey){
  const group=title=>`<div class="settings-group-title">${title}</div>`;
@@ -8,6 +8,7 @@ export function settingsView(ui,game,tab,captureKey){
  let html='';
  if(tab==='game'){
  html+=group('ZEN OPTIONS');
+ html+=select('topoutMode','Top-out behavior','Survival ends the run when you top out. Battles always use elimination.',[['endless','ENDLESS RECOVERY'],['eliminate','SURVIVAL · GAME OVER']]);
  html+=select('leveling','Leveling','Advance every 10 lines. Discreet hides the level-up effect.',[['on','ON'],['discreet','DISCREET'],['off','OFF']]);
  html+=toggle('infiniteHold','Infinite hold','Allow multiple hold swaps before placing a piece.','game');
  html+=select('spinMode','Spins','Choose the pieces and detection rules that earn spin bonuses.',[['tspins','T-SPINS'],['tspins+','T-SPINS+'],['allspins+','ALL-SPINS+'],['allspins','ALL-SPINS'],['allmini+','ALL-MINI+'],['allmini','ALL-MINI'],['mini-only','MINI-ONLY'],['handheld','HANDHELD'],['stupid','STUPID'],['none','NONE']]);
@@ -17,7 +18,8 @@ export function settingsView(ui,game,tab,captureKey){
  if(game.gravityMode==='static')html+=range('gravity','Static gravity','Cells per second.',0,120,.1,'/s','game');
  html+=select('display','Display','Choose an additional live statistics panel.',[['off','OFF'],['versus','VERSUS'],['time','TIME'],['speed','SPEED'],['efficiency','EFFICIENCY']],'ui');
  html+=group('CPU PRACTICE');
- html+=select('botDifficulty','CPU speed','Choose the pace of the visible practice opponent.',[['easy','EASY · 0.55 PPS'],['normal','NORMAL · 1.1 PPS'],['hard','HARD · 2 PPS']],'ui');
+ html+=select('botDifficulty','CPU preset','Choose a preset, then fine-tune target PPS below.',[['easy','EASY · 0.55 PPS'],['normal','NORMAL · 1.1 PPS'],['hard','HARD · 2 PPS']],'ui');
+ html+=range('botPPS','CPU target PPS','Custom pace, from 0.1 to 10 pieces per second. Actual speed depends on AI calculation time.',.1,10,.1,'PPS','ui');
  html+=group('GARBAGE');
  html+=select('garbageMode','Garbage','Reflect your attacks, maintain cheese, or add timed garbage.',[['off','OFF'],['backfire','BACKFIRE'],['unclear','UNCLEAR'],['cheese-layer','CHEESE LAYER'],['cheese-timer','CHEESE TIMER']]);
  if(['backfire','unclear'].includes(game.garbageMode))html+=select('garbageAmount','Garbage multiplier','Scale your reflected attack.',[[.5,'0.5×'],[1,'1×'],[2,'2×']]);
